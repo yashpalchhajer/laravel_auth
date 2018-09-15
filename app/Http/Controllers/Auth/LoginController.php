@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Foundation\Auth\AuthenticatesUsers;
+use Laravel\Socialite\Facades\Socialite;
+use App\User;
 
 class LoginController extends Controller
 {
@@ -35,5 +37,31 @@ class LoginController extends Controller
     public function __construct()
     {
         $this->middleware('guest')->except('logout');
+    }
+
+    public function redirectToProvider(){
+        return Socialite::driver('google')->redirect();
+    }
+
+    public function handleCallbackProvider(){
+        try{
+            $user = Socialite::driver('google')->user();
+            $existUser = User::where('email',$user->email)->first();
+            if($existUser){
+                auth()->login($existUser,true);
+            }else{
+                $newUser = new User();
+                $newUser->name = $user->getName();
+                $newUser->email = $user->getEmail();
+                $newUser->password = md5('sec' . rand(1,100) . 'ret');
+                $newUser->save();
+                auth()->login($newUser,true);
+            }
+            return redirect()->to($this->redirectTo);
+            
+        }catch(\Exception $e){
+            \Log::error($e->getMessage());
+            return redirect()->to('/login');
+        }
     }
 }
